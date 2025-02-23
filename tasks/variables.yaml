@@ -1,0 +1,81 @@
+---
+- name: Include OS distribution variables
+  ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', lookup_params) }}"
+  vars:
+    lookup_params:
+      files:
+        - "{{ ansible_distribution | lower }}-{{ ansible_distribution_version }}.yaml"
+        - "{{ ansible_distribution | lower }}-{{ ansible_distribution_major_version }}.yaml"
+        - "{{ ansible_os_family | lower }}-{{ ansible_distribution_major_version }}.yaml"
+      paths:
+        - "vars"
+
+- name: Check if PostgreSQL version is configured
+  when:
+    - postgresql_version is not defined
+    - not postgresql_version is match('^\d+\.\d+$')
+  ansible.builtin.fail:
+    msg: You must set postgresql_version to the major.minor version.
+
+- block:
+  - name: Include required variables for the PostgreSQL db parameter group
+    when: postgresql_conf is not defined
+    ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', lookup_params) }}"
+    vars:
+      lookup_params:
+        paths:
+          - "defaults/parameter_groups"
+        files:
+          - "default.postgres{{ postgresql_version }}.yaml"
+          - "default.postgres{{ postgresql_major_version }}.yaml"
+  rescue:
+  - name: Unsupported PostgreSQL version
+    fail:
+     msg: "defaults/parameter_groups/default.postgres{{ postgresql_major_version }}.yaml not found"
+
+- block:
+  - name: Include optional variables for the PostgreSQL db cluster parameter group
+    when: postgresql_cluster_conf is not defined
+    ansible.builtin.include_vars: "{{ lookup('ansible.builtin.first_found', lookup_params) }}"
+    vars:
+      lookup_params:
+        paths:
+          - "defaults/parameter_groups"
+        files:
+          - "default.cluster-postgres{{ postgresql_version }}.yaml"
+          - "default.cluster-postgres{{ postgresql_major_version }}.yaml"
+  rescue:
+  - name: Unsupported PostgreSQL cluster version
+    ansible.builtin.debug:
+      msg: "defaults/parameter_groups/default.cluster-postgres{{ postgresql_major_version }}.yaml not found"
+    failed_when: false
+
+- name: Check if PostgreSQL is configured
+  when: postgresql_conf is not defined
+  ansible.builtin.fail:
+    msg: ->
+      You must set postgresql_conf to a list of { key=*, val=* } pairs.
+
+#- name: Check if PostgreSQL packages are configured
+#  when: postgresql_packages is not defined
+#  ansible.builtin.fail:
+#    msg: You must set postgresql_packages to list the package names.
+
+#- name: Check if PostgreSQL host-based authentication is configured
+#  when: postgresql_hba is not defined
+#  ansible.builtin.fail:
+#    msg: You must set postgresql_hba to list authenticated hosts.
+
+#- name: Check PostgreSQL host-based authentication entries
+#  with_items: "{{ postgresql_hba | default([]) }}"
+#  when: item.type is not defined or
+#        item.database is not defined or
+#        item.user is not defined or
+#        item.method is not defined
+#  ansible.builtin.fail:
+#    msg: >-
+#         The following entry in the postgresql_hba list is invalid:
+#         {{ item }}
+#         Each list entry must be a dictionary with values for keys
+#         'type', 'database', 'user', 'cidr', and 'method'.
+...

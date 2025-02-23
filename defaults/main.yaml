@@ -1,0 +1,16 @@
+---
+postgresql_version: "14.17"
+
+postgresql_hba:
+  - type: host
+    database: all
+    user: all
+    cidr: 127.0.0.1/32
+    method: ident
+
+#
+# Please configure the postgresql_listen IP address explicitly.
+# It's only guessed here when it hasn't already been set.
+#
+postgresql_listen: "{{ ansible_default_ipv4.address }}"
+...

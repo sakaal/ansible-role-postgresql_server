@@ -1,0 +1,43 @@
+---
+- name: Check distribution support
+  when: not (postgresql_supported_distributions[ansible_distribution] | default([])
+            )[ansible_distribution_major_version] | default(false)
+  ansible.builtin.fail:
+    msg: ->
+        This role has not been tested on {{  ansible_distribution }}
+        {{ ansible_distribution_major_version }}.
+
+- name: Manage yum repositories
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_distribution_major_version in [ "7" ]
+  ansible.builtin.include_tasks: repository-yum.yaml
+
+- name: Check if the built-in PostgreSQL module is disabled
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_distribution_major_version in [ "8", "9" ]
+  become: true
+  ansible.builtin.command: sudo dnf module list --disabled postgresql
+  register: postgresql_dnf_module
+  changed_when: postgresql_dnf_module.rc != 0
+  failed_when: false
+
+- name: Disable the built-in PostgreSQL module
+  when:
+    - postgresql_dnf_module is changed
+  become: true
+  ansible.builtin.command: sudo dnf -qy module disable postgresql
+
+- name: PostgreSQL repository RPM key
+  become: true
+  ansible.builtin.rpm_key:
+    key: "{{ postgresql_repo_rpm[ansible_architecture].key }}"
+    fingerprint: "{{ postgresql_repo_rpm[ansible_architecture].fingerprint | default(omit) }}"
+  when: postgresql_repo_rpm[ansible_architecture].key is defined
+
+- name: PostgreSQL repository RPM
+  become: true
+  ansible.builtin.yum:
+    name: "{{ postgresql_repo_rpm[ansible_architecture].url }}"
+...

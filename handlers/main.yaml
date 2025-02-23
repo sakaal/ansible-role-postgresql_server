@@ -1,0 +1,19 @@
+---
+- name: Reload PostgreSQL
+  become: true
+  ansible.builtin.service:
+    name: "{{ postgresql_name }}"
+    state: reloaded
+
+- name: Restart PostgreSQL
+  become: true
+  ansible.builtin.service:
+    name: "{{ postgresql_name }}"
+    state: restarted
+
+- name: Reload firewall
+  become: true
+  ansible.builtin.service:
+    name: firewalld
+    state: reloaded
+...

@@ -1,0 +1,131 @@
+---
+- name: Set variables
+  include_tasks: variables.yaml
+
+- name: PostgreSQL repository
+  include_tasks: repository.yaml
+
+- name: PostgreSQL server and adapter packages
+  become: true
+  ansible.builtin.package:
+    name: "{{ postgresql_packages }}"
+
+- name: Get postgres user info
+  ansible.builtin.getent:
+    database: passwd
+    key: postgres
+
+- name: Extract postgres user home directory
+  ansible.builtin.set_fact:
+    postgres_home: "{{ getent_passwd.postgres[4] }}"
+
+- name: Determine the PostgreSQL data directory location
+  ansible.builtin.set_fact:
+    postgresql_pgdata: "{{ postgres_home }}/{{ postgresql_major_version }}/data"
+
+- name: Check the PostgreSQL data directory structure
+  become: true
+  ansible.builtin.shell: >
+      PATH=$PATH:/usr/pgsql-{{ postgresql_major_version }}/bin;
+      {{ postgresql_name }}-check-db-dir {{ postgresql_pgdata }};
+  register: pgdata_status
+  changed_when: pgdata_status.rc != 0
+  failed_when: False
+
+- name: Check if manual intervention is necessary
+  when:
+    - pgdata_status is changed
+    - "'version' in pgdata_status.stdout"
+  ansible.builtin.fail:
+    msg: "{{ pgdata_status.stdout }}"
+
+- name: Initialize the database cluster
+  when:
+    - pgdata_status is changed
+    - "'initdb' in pgdata_status.stdout"
+  become: true
+  environment:
+    PGSETUP_INITDB_OPTIONS: >
+        --no-locale
+        -D '{{ postgresql_pgdata }}'
+        -E UNICODE
+  ansible.builtin.shell: >
+      PATH=$PATH:/usr/pgsql-{{ postgresql_version }}/bin;
+      {{ postgresql_name }}-setup initdb;
+  notify:
+   - Restart PostgreSQL
+
+#
+# PostgreSQL configuration
+#
+- name: PostgreSQL configuration
+  with_items: "{{ postgresql_conf }}"
+  become: true
+  ansible.builtin.lineinfile:
+    dest: "{{ postgresql_pgdata }}/postgresql.conf"
+    regexp: "^\\s*{{ item.key }}\\s*="
+    line: "{{ item.key }} = {{ item.val | default('') }}"
+    insertafter: "^#+\\s*{{ item.key }}\\s*="
+    state: "{{ item.state | default('present') }}"
+  notify:
+  - Restart PostgreSQL
+
+#
+# TODO: Further reduce the need of manual configuration. Manage apps, not CIDRs. 
+#
+- name: PostgreSQL host-based authentication
+  become: true
+  ansible.builtin.template:
+    src: pg_hba.conf.j2
+    dest: "{{ postgresql_pgdata }}/pg_hba.conf"
+    owner: postgres
+    group: postgres
+    mode: 0600
+  notify:
+  - Reload PostgreSQL
+
+- name: Enable PostgreSQL recovery configuration
+  when:
+  - postgresql_recovery | default({}) | length > 0
+  become: true
+  ansible.builtin.template:
+    src: "recovery.conf.j2"
+    dest: "{{ postgresql_pgdata }}/recovery.conf"
+    owner: postgres
+    group: postgres
+    mode: 0600
+  notify:
+  - Reload PostgreSQL
+
+- name: Disable PostgreSQL recovery configuration
+  when:
+  - postgresql_recovery | default({}) | length == 0
+  become: true
+  ansible.builtin.file:
+    path: "{{ postgresql_pgdata }}/recovery.conf"
+    state: absent
+  notify:
+  - Reload PostgreSQL
+
+- name: Enable and start the PostgreSQL service
+  become: true
+  ansible.builtin.service:
+    name: "{{ postgresql_name }}"
+    enabled: true
+    state: started
+
+#- name: Open the internal firewall for PostgreSQL
+#  become: true
+#  ansible.posix.firewalld:
+#    permanent: true
+#    immediate: true
+#    zone: internal # TODO: Check zone
+#    service: postgresql
+#    state: enabled
+
+#- name: Monitoring script
+#  include_tasks: check_postgres.yaml
+
+- name: VACUUM ANALYZE script
+  include_tasks: vacuum.yaml
+...

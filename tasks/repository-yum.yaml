@@ -1,0 +1,35 @@
+---
+- name: Augeas - A library for changing configuration files
+  become: true
+  ansible.builtin.package:
+    name: "augeas"
+    state: present
+
+- name: Find which file in /etc/yum.repos.d defines the usual repository to exclude postgresql
+  ansible.builtin.find:
+    paths: "/etc/yum.repos.d"
+    file_type: file
+    use_regex: true
+    contains: '^\[{{ postgresql_exclude_repository }}\]$'
+  register: postgresql_repos
+  failed_when: postgresql_repos.files | length != 1
+
+- name: Set the usual repository to exclude postgresql
+  ansible.builtin.set_fact:
+    postgresql_exclude_repo_path: "{{ postgresql_repos.files[0].path }}"
+
+- name: Check if PostgreSQL packages are already excluded
+  become: true
+  ansible.builtin.command: >
+      augtool -s print /files{{ postgresql_exclude_repo_path }}/{{ postgresql_exclude_repository }}/exclude
+  register: postgresql_excludes
+  changed_when: not 'postgresql*' in postgresql_excludes.stdout
+
+- name: Exclude PostgreSQL packages from the usual repository
+  when: postgresql_excludes is changed
+  with_items:
+  - "{{ postgresql_exclude_repository }}"
+  become: true
+  ansible.builtin.command: >
+      augtool -s set /files{{ postgresql_exclude_repo_path }}/{{ item }}/exclude[1] postgresql*
+...

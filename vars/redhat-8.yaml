@@ -1,0 +1,19 @@
+---
+postgresql_exclude_repository: appstream
+postgresql_name: "postgresql-{{ postgresql_major_version }}"
+
+postgresql_packages:
+  - "postgresql{{ postgresql_major_version }}-server"
+
+postgresql_repo_rpm:
+  x86_64:
+    url: "https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-x86_64/pgdg-redhat-repo-latest.noarch.rpm"
+    key: "https://yum.postgresql.org/keys/PGDG-RPM-GPG-KEY-RHEL"
+    fingerprint: "D4BF 08AE 67A0 B4C7 A1DB CCD2 40BC A2B4 08B4 0D20"
+  aarch64:
+    url: "https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-aarch64/pgdg-redhat-repo-latest.noarch.rpm"
+    key: "https://yum.postgresql.org/keys/PGDG-RPM-GPG-KEY-AARCH64-RHEL"
+  ppc64le:
+    url: "https://download.postgresql.org/pub/repos/yum/reporpms/EL-8-ppc64le/pgdg-redhat-repo-latest.noarch.rpm"
+    key: "https://yum.postgresql.org/keys/RPM-GPG-KEY-PGDG-PPC64LE-RHEL8"
+...

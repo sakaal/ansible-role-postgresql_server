@@ -1,0 +1,14 @@
+---
+postgresql_major_version: "{{ postgresql_version.split('.')[0] }}"
+
+postgresql_supported_distributions:
+    AlmaLinux:
+        "8": true
+        "7": true
+    CentOS:
+        "8": true
+        "7": true
+    RedHat:
+        "8": true
+        "7": true
+...

@@ -1,0 +1,21 @@
+---
+postgresql_exclude_repository: base
+postgresql_name: "postgresql-{{ postgresql_major_version }}"
+
+postgresql_packages:
+  - "postgresql{{ postgresql_major_version }}-server"
+
+postgresql_repo_rpm:
+  x86_64:
+    url: "https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm"
+    key: "https://yum.postgresql.org/keys/PGDG-RPM-GPG-KEY-RHEL7"
+    fingerprint: ""
+  aarch64:
+    url: "https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-aarch64/pgdg-redhat-repo-latest.noarch.rpm"
+    key: "https://yum.postgresql.org/keys/PGDG-RPM-GPG-KEY-AARCH64-RHEL7"
+    fingerprint: ""
+  ppc64le:
+    url: "https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-ppc64le/pgdg-redhat-repo-latest.noarch.rpm"
+    key: ""
+    fingerprint: ""
+...
