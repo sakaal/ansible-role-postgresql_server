@@ -72,15 +72,10 @@
 # configuration parameter, or via the -i or -h command line switches.
 
 {% for hba in postgresql_hba %}
-{{
-hba.type }} {{
-hba.database }} {{
-hba.user }} {{
-hba.cidr }} {{
-hba.method
-}}
+{{ hba.type }} {{ hba.database }} {{ hba.user }} {{ hba.address }} {{ hba.method }}
 {% endfor %}
 
+include_dir pg_hba.d
 # TYPE  DATABASE        USER            ADDRESS                 METHOD
 
 # "local" is for Unix domain socket connections only

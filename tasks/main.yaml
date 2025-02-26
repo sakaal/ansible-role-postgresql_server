@@ -61,6 +61,7 @@
 - name: PostgreSQL configuration
   with_items: "{{ postgresql_conf }}"
   become: true
+  become_user: postgres
   ansible.builtin.lineinfile:
     dest: "{{ postgresql_pgdata }}/postgresql.conf"
     regexp: "^\\s*{{ item.key }}\\s*="
@@ -70,11 +71,19 @@
   notify:
   - Restart PostgreSQL
 
-#
-# TODO: Further reduce the need of manual configuration. Manage apps, not CIDRs. 
-#
+- name: PostgreSQL host-based authentication directory
+  become: true
+  become_user: postgres
+  ansible.builtin.file:
+    path:  "{{ postgresql_pgdata }}/pg_hba.d"
+    state: directory
+    owner: postgres
+    group: postgres
+    mode:  '0755'
+
 - name: PostgreSQL host-based authentication
   become: true
+  become_user: postgres
   ansible.builtin.template:
     src: pg_hba.conf.j2
     dest: "{{ postgresql_pgdata }}/pg_hba.conf"
@@ -88,6 +97,7 @@
   when:
   - postgresql_recovery | default({}) | length > 0
   become: true
+  become_user: postgres
   ansible.builtin.template:
     src: "recovery.conf.j2"
     dest: "{{ postgresql_pgdata }}/recovery.conf"
@@ -101,6 +111,7 @@
   when:
   - postgresql_recovery | default({}) | length == 0
   become: true
+  become_user: postgres
   ansible.builtin.file:
     path: "{{ postgresql_pgdata }}/recovery.conf"
     state: absent

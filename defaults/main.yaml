@@ -5,8 +5,8 @@ postgresql_hba:
   - type: host
     database: all
     user: all
-    cidr: 127.0.0.1/32
-    method: ident
+    address: 127.0.0.1/32 # address and mask
+    method: ident # auth method and options
 
 #
 # Please configure the postgresql_listen IP address explicitly.
