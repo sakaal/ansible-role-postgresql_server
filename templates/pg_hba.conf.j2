@@ -75,7 +75,9 @@
 {{ hba.type }} {{ hba.database }} {{ hba.user }} {{ hba.address }} {{ hba.method }}
 {% endfor %}
 
+{% if postgresql_version is version('15', '>=') %}
 include_dir pg_hba.d
+{% endif %}
 # TYPE  DATABASE        USER            ADDRESS                 METHOD
 
 # "local" is for Unix domain socket connections only
