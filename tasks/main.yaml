@@ -139,4 +139,11 @@
 
 - name: VACUUM ANALYZE script
   include_tasks: vacuum.yaml
+
+- name: Install dump_database.sh script (optional util)
+  become: true
+  copy:
+    src: "dump_database.sh"
+    dest: "/usr/local/bin/dump_database"
+    mode: '0755'
 ...
