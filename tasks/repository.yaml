@@ -13,21 +13,34 @@
     - ansible_distribution_major_version in [ "7" ]
   ansible.builtin.include_tasks: repository-yum.yaml
 
-- name: Check if the built-in PostgreSQL module is disabled
+# On RHEL/AlmaLinux 8+ the AppStream postgresql module can block PGDG
+# packages.  Check if the module exists before trying to disable it —
+# not all releases (e.g. some RHEL 9 configurations) ship the module.
+- name: Check if a PostgreSQL DNF module exists
   when:
     - ansible_os_family == "RedHat"
     - ansible_distribution_major_version in [ "8", "9" ]
   become: true
-  ansible.builtin.command: sudo dnf module list --disabled postgresql
-  register: postgresql_dnf_module
-  changed_when: postgresql_dnf_module.rc != 0
+  ansible.builtin.command: dnf module list postgresql
+  register: _pg_dnf_module_exists
+  changed_when: false
+  failed_when: false
+
+- name: Check if the PostgreSQL DNF module is disabled
+  when:
+    - _pg_dnf_module_exists.rc | default(1) == 0
+  become: true
+  ansible.builtin.command: dnf module list --disabled postgresql
+  register: _pg_dnf_module_disabled
+  changed_when: _pg_dnf_module_disabled.rc != 0
   failed_when: false
 
 - name: Disable the built-in PostgreSQL module
   when:
-    - postgresql_dnf_module is changed
+    - _pg_dnf_module_disabled is defined
+    - _pg_dnf_module_disabled is changed
   become: true
-  ansible.builtin.command: sudo dnf -qy module disable postgresql
+  ansible.builtin.command: dnf -qy module disable postgresql
 
 - name: PostgreSQL repository RPM key
   become: true
