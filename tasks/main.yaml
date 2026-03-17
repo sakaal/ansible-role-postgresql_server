@@ -93,8 +93,13 @@
   notify:
   - Reload PostgreSQL
 
-- name: Enable PostgreSQL recovery configuration
+# PostgreSQL 12+ replaced recovery.conf with standby.signal file and
+# moved primary_conninfo into postgresql.conf.  Versions before 12 use
+# the legacy recovery.conf file.
+
+- name: Enable PostgreSQL recovery configuration (legacy)
   when:
+  - postgresql_major_version | int < 12
   - postgresql_recovery | default({}) | length > 0
   become: true
   become_user: postgres
@@ -107,8 +112,9 @@
   notify:
   - Reload PostgreSQL
 
-- name: Disable PostgreSQL recovery configuration
+- name: Disable PostgreSQL recovery configuration (legacy)
   when:
+  - postgresql_major_version | int < 12
   - postgresql_recovery | default({}) | length == 0
   become: true
   become_user: postgres
@@ -117,6 +123,69 @@
     state: absent
   notify:
   - Reload PostgreSQL
+
+- name: Enable standby signal file (PostgreSQL 12+)
+  when:
+  - postgresql_major_version | int >= 12
+  - postgresql_recovery | default({}) | length > 0
+  become: true
+  become_user: postgres
+  ansible.builtin.copy:
+    content: ""
+    dest: "{{ postgresql_pgdata }}/standby.signal"
+    owner: postgres
+    group: postgres
+    mode: 0600
+    force: false
+
+- name: Configure primary_conninfo in postgresql.conf (PostgreSQL 12+)
+  when:
+  - postgresql_major_version | int >= 12
+  - postgresql_recovery | default({}) | length > 0
+  - postgresql_recovery.primary_conninfo is defined
+  become: true
+  become_user: postgres
+  ansible.builtin.lineinfile:
+    dest: "{{ postgresql_pgdata }}/postgresql.conf"
+    regexp: "^\\s*primary_conninfo\\s*="
+    line: "primary_conninfo = 'host={{ postgresql_recovery.primary_conninfo.host }} port={{ postgresql_recovery.primary_conninfo.port }} user={{ postgresql_recovery.primary_conninfo.user }} password={{ postgresql_recovery.primary_conninfo.password }}'"
+    state: present
+  notify:
+  - Restart PostgreSQL
+
+- name: Disable standby mode (PostgreSQL 12+)
+  when:
+  - postgresql_major_version | int >= 12
+  - postgresql_recovery | default({}) | length == 0
+  become: true
+  become_user: postgres
+  ansible.builtin.file:
+    path: "{{ postgresql_pgdata }}/standby.signal"
+    state: absent
+  notify:
+  - Restart PostgreSQL
+
+- name: Remove primary_conninfo when not in standby (PostgreSQL 12+)
+  when:
+  - postgresql_major_version | int >= 12
+  - postgresql_recovery | default({}) | length == 0
+  become: true
+  become_user: postgres
+  ansible.builtin.lineinfile:
+    dest: "{{ postgresql_pgdata }}/postgresql.conf"
+    regexp: "^\\s*primary_conninfo\\s*="
+    state: absent
+  notify:
+  - Restart PostgreSQL
+
+- name: Remove legacy recovery.conf on PostgreSQL 12+
+  when:
+  - postgresql_major_version | int >= 12
+  become: true
+  become_user: postgres
+  ansible.builtin.file:
+    path: "{{ postgresql_pgdata }}/recovery.conf"
+    state: absent
 
 - name: Enable and start the PostgreSQL service
   become: true

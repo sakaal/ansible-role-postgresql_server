@@ -11,9 +11,4 @@
     name: "{{ postgresql_name }}"
     state: restarted
 
-- name: Reload firewall
-  become: true
-  ansible.builtin.service:
-    name: firewalld
-    state: reloaded
 ...
