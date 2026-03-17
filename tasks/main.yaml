@@ -2,18 +2,19 @@
 - name: Set variables
   include_tasks: variables.yaml
 
-# Check if the desired server packages are already installed.  If so,
-# skip repository setup entirely — the packages may have come from any
-# source (PGDG, AppStream, Foreman, local builds, etc.).
-- name: Check if PostgreSQL server packages are already installed
-  ansible.builtin.command:
-    cmd: "rpm -q {{ postgresql_packages | join(' ') }}"
-  register: _pg_packages_installed
+# Check if the desired server packages are already available from
+# existing repositories (PGDG, AppStream, Foreman, etc.).  Only add
+# the PGDG repository if the packages cannot be found otherwise.
+- name: Check if PostgreSQL server packages are available
+  ansible.builtin.shell:
+    cmd: "{{ ansible_pkg_mgr }} list available {{ postgresql_packages | join(' ') }} 2>/dev/null || rpm -q {{ postgresql_packages | join(' ') }} 2>/dev/null"
+  register: _pg_packages_available
   changed_when: false
   failed_when: false
+  become: true
 
 - name: PostgreSQL repository
-  when: _pg_packages_installed.rc != 0
+  when: _pg_packages_available.rc != 0
   include_tasks: repository.yaml
 
 - name: PostgreSQL server and adapter packages
