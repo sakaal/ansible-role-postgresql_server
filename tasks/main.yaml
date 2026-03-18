@@ -2,12 +2,16 @@
 - name: Set variables
   include_tasks: variables.yaml
 
-# Check if the desired server packages are already available from
-# existing repositories (PGDG, AppStream, Foreman, etc.).  Only add
-# the PGDG repository if the packages cannot be found otherwise.
+# Ensure DNF modular filtering does not block versioned PostgreSQL
+# packages before checking availability.  Then only add the PGDG
+# repository if the packages are not already available from existing
+# sources (Foreman, AppStream, local repos, etc.).
+- name: Prepare package manager
+  include_tasks: prepare_pkg_mgr.yaml
+
 - name: Check if PostgreSQL server packages are available
   ansible.builtin.shell:
-    cmd: "{{ ansible_pkg_mgr }} list available {{ postgresql_packages | join(' ') }} 2>/dev/null || rpm -q {{ postgresql_packages | join(' ') }} 2>/dev/null"
+    cmd: "rpm -q {{ postgresql_packages | join(' ') }} 2>/dev/null || {{ ansible_pkg_mgr }} list available {{ postgresql_packages | join(' ') }} 2>/dev/null"
   register: _pg_packages_available
   changed_when: false
   failed_when: false

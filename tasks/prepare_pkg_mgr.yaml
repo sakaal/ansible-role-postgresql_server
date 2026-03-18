@@ -1,0 +1,34 @@
+# Disable DNF modular filtering for PostgreSQL so that versioned
+# packages (e.g. postgresql18-server from PGDG or Foreman repos)
+# are not blocked by an active AppStream module stream.
+#
+# This runs early — before the package availability check — because
+# modular filtering can hide packages that are already available,
+# causing unnecessary PGDG repository setup.
+---
+- name: Check if a PostgreSQL DNF module exists
+  when:
+    - ansible_os_family == "RedHat"
+    - ansible_distribution_major_version in [ "8", "9" ]
+  become: true
+  ansible.builtin.command: dnf module list postgresql
+  register: _pg_dnf_module_exists
+  changed_when: false
+  failed_when: false
+
+- name: Check if the PostgreSQL DNF module is disabled
+  when:
+    - (_pg_dnf_module_exists.rc | default(1)) == 0
+  become: true
+  ansible.builtin.command: dnf module list --disabled postgresql
+  register: _pg_dnf_module_disabled
+  changed_when: _pg_dnf_module_disabled.rc != 0
+  failed_when: false
+
+- name: Disable the built-in PostgreSQL module
+  when:
+    - _pg_dnf_module_disabled is defined
+    - _pg_dnf_module_disabled is changed
+  become: true
+  ansible.builtin.command: dnf -qy module disable postgresql
+...
